@@ -43,37 +43,41 @@ void render(float fov, float[][] cameraToWorld) {
 
 //so, the reason why this function is so nothing burger is bc the tutorial wrote it
 //to be able to check multiple meshes for intersections, but i am way too lazy to do that
-float[] trace(float[] origin, float[] dir) {
-  float[] tuvi = intersect(origin, dir);
-  if (tuvi != null) {
-    return tuvi;
+Bary trace(float[] origin, float[] dir) {
+  Bary bary = intersect(origin, dir);
+  if (bary != null) {
+    return bary;
   }
   return null;
 }
 
 int castRay(float[] origin, float[] dir) {
   int hitColor = 255;
-  float[] tuvi = trace(origin, dir);
-  if (tuvi != null) {
-    int i = (int) tuvi[3]; //yes yes i know
-    float[] v0 = verts[tris[i*3]];
-    float[] v1 = verts[tris[i*3+1]];
-    float[] v2 = verts[tris[i*3+2]];
+  Bary bary = trace(origin, dir);
+  if (bary != null) {
+    float[] v0 = verts[tris[bary.i*3]];
+    float[] v1 = verts[tris[bary.i*3+1]];
+    float[] v2 = verts[tris[bary.i*3+2]];
 
     float[] hitNormal = Utils.cross(Utils.subtract(v1, v0), Utils.subtract(v2, v0));
     hitNormal = Utils.normalize(hitNormal);
+    
+    if (Utils.dot(hitNormal, dir) > 0) {
+      hitNormal = Utils.multiplyConst(hitNormal, -1);   // must reassign
+    }
 
     //normalize ndotview to [0,1] as it is a dot prod
-    float NdotView = max(0, Utils.dot(hitNormal, Utils.multiplyConst(dir, -1)));
+    float NdotView = max(0, Utils.dot(hitNormal, Utils.multiplyConst(dir, -1)) / Utils.magnitude(dir));
+    
+    //if (NdotView == 0) print (Utils.dot(hitNormal, dir) / Utils.magnitude(dir) + " ");
 
     hitColor = (int) (NdotView * 255);
   }
-  print(hitColor);
   return hitColor;
 }
 
 //returns parameter t and barycentric coordinates u, v
-float[] rayTriangleIntersect(float[] origin, float[] dir, float[] v0, float[] v1,
+Bary rayTriangleIntersect(float[] origin, float[] dir, float[] v0, float[] v1,
   float[]v2) {
   float[] v0v1 = Utils.subtract(v1, v0);
   float[] v0v2 = Utils.subtract(v2, v0);
@@ -116,14 +120,14 @@ float[] rayTriangleIntersect(float[] origin, float[] dir, float[] v0, float[] v1
   u /= denom;
   v /= denom;
 
-  float[] bary = {t, u, v};
+  Bary bary = new Bary(t, u, v);
 
   return bary;
 }
 
 //returns parameter t; coords u, v; triangle index i (this is a terrible implementation but what are you gonna do)
-float[] intersect(float[] origin, float[] dir) {
-  float[] tuvi = new float[4];
+Bary intersect(float[] origin, float[] dir) {
+  Bary result = new Bary();
   float t = Float.MAX_VALUE;
 
   boolean intersect = false;
@@ -132,20 +136,17 @@ float[] intersect(float[] origin, float[] dir) {
     float[] v1 = verts[tris[i*3+1]];
     float[] v2 = verts[tris[i*3+2]];
 
-    float[] bary = rayTriangleIntersect(origin, dir, v0, v1, v2);
+    Bary bary = rayTriangleIntersect(origin, dir, v0, v1, v2);
 
-    if (bary != null && bary[0] < t) {
-      tuvi[0] = bary[0];
-      tuvi[1] = bary[1];
-      tuvi[2] = bary[2];
-      tuvi[3] = i;
-
-      t = bary[0];
+    if (bary != null && bary.t < t) {
+      result = bary;
+      result.setI(i);
       intersect = true;
+      t = bary.t;
     }
   }
   if (intersect == false) return null;
-  return tuvi;
+  return result;
 }
 
 float focalLength = 35; // 35mm Full Aperture

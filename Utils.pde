@@ -1,4 +1,4 @@
-static class Utils{
+static class Utils {
   
   //Most of these are unused, I copied the classes over from an earlier project with some edits
   
